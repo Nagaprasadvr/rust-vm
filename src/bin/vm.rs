@@ -5,7 +5,7 @@ fn main() -> Result<(), String> {
     let mem_cpy = Arc::clone(&vm.memory);
     let mut loaded_idx = 0;
 
-    for i in 0..10 {
+    for _ in 0..10 {
         let loaded_size = {
             let mut mem_write_lock = mem_cpy.write().map_err(|e| e.to_string())?;
             let val = mem_write_lock.load_ix(loaded_idx, &[0x01, 0x02, 0x00, 0x01])?;
@@ -19,7 +19,7 @@ fn main() -> Result<(), String> {
 
     let start = Instant::now();
 
-    vm.exec_seq()?;
+    vm.exec_concurrent()?;
 
     let duration = start.elapsed();
 

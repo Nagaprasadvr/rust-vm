@@ -3,7 +3,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use crate::memory::{self, Memory};
+use crate::memory::Memory;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -128,7 +128,7 @@ impl VM {
         );
     }
 
-    pub fn parseand_exec_ixs_seq(&mut self) -> Result<(), String> {
+    pub fn parse_and_exec_ixs_seq(&mut self) -> Result<(), String> {
         let mem_cpy = Arc::clone(&self.memory);
 
         let reg_cpy = Arc::clone(&self.registers);
@@ -191,36 +191,32 @@ impl VM {
             drop(mem_read_lock);
         }
 
-        for _ in 0..(ixs_count / 10) {
+        for _ in 0..ixs_count {
             let mem_cpy = Arc::clone(&mem_cpy);
             let reg_cpy = Arc::clone(&reg_cpy);
 
             threads.push(thread::spawn(move || -> Result<(), String> {
-                for _ in 0..10 {
-                    let mem_read_lock = mem_cpy.read().map_err(|e| e.to_string())?;
-                    let reg_read_lock = reg_cpy.read().map_err(|e| e.to_string())?;
+                let mem_read_lock = mem_cpy.read().map_err(|e| e.to_string())?;
+                let reg_read_lock = reg_cpy.read().map_err(|e| e.to_string())?;
 
-                    let pc = reg_read_lock[Register::PC.into_usize()];
+                let pc = reg_read_lock[Register::PC.into_usize()];
 
-                    let ix = mem_read_lock.read_code_seg(pc)?;
+                let ix = mem_read_lock.read_code_seg(pc)?;
 
-                    let ix_data_size = mem_read_lock.read_code_seg(pc + IX_SIZE_OFFSET)?;
+                let ix_data_size = mem_read_lock.read_code_seg(pc + IX_SIZE_OFFSET)?;
 
-                    let ix_data = mem_read_lock
-                        .read_code_seg_slice(pc + IX_DATA_OFFSET, ix_data_size as usize)?;
+                let ix_data = mem_read_lock
+                    .read_code_seg_slice(pc + IX_DATA_OFFSET, ix_data_size as usize)?;
 
-                    let inx = Ix {
-                        ix_type: IxType::try_from(ix)?,
-                        ix_data_size,
-                        ix_data: ix_data.to_vec(),
-                    };
-                    drop(mem_read_lock);
-                    drop(reg_read_lock);
+                let inx = Ix {
+                    ix_type: IxType::try_from(ix)?,
+                    ix_data_size,
+                    ix_data: ix_data.to_vec(),
+                };
+                drop(mem_read_lock);
+                drop(reg_read_lock);
 
-                    Self::exec_ix(Arc::clone(&mem_cpy), Arc::clone(&reg_cpy), inx)?;
-                }
-
-                Ok(())
+                Self::exec_ix(Arc::clone(&mem_cpy), Arc::clone(&reg_cpy), inx)
             }))
         }
 
@@ -251,9 +247,9 @@ impl VM {
             }
             IxType::MOV => {
                 let reg = Register::try_from(ix_data[0])?;
-                let mut reg_write_lock = reg_cpy.write().map_err(|e| e.to_string())?;
-                reg_write_lock[reg.into_usize()] = ix_data[1] as u16;
-                drop(reg_write_lock);
+                // let mut reg_write_lock = reg_cpy.write().map_err(|e| e.to_string())?;
+                // reg_write_lock[reg.into_usize()] = ix_data[1] as u16;
+                // drop(reg_write_lock);
             }
             IxType::LDM => {
                 let addr = get_addr_from_two_bytes(ix_data[0], ix_data[1]);
@@ -292,7 +288,7 @@ impl VM {
     }
 
     pub fn exec_seq(&mut self) -> Result<(), String> {
-        self.parseand_exec_ixs_seq()?;
+        self.parse_and_exec_ixs_seq()?;
         Ok(())
     }
 
